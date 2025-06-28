@@ -1,0 +1,10 @@
+{"level":"info","message":"Fleet Management Server running on port 3000","service":"fleet-management-server","timestamp":"2025-06-28T20:38:49.511Z"}
+{"level":"info","message":"Fleet Management Server running on port 3000","service":"fleet-management-server","timestamp":"2025-06-28T20:39:51.165Z"}
+{"level":"info","message":"Auto-registered device: test-device via JT808 alert","service":"fleet-management-server","timestamp":"2025-06-28T20:39:57.094Z"}
+{"level":"info","message":"JT808 Alert: test-device - emergency (warnBit: 1, statusBit: 0)","service":"fleet-management-server","timestamp":"2025-06-28T20:39:57.096Z"}
+{"level":"info","message":"[DEBUG] GET /api/dashcams/test-device/commands - Device polling for commands","service":"fleet-management-server","timestamp":"2025-06-28T20:40:00.198Z"}
+{"level":"info","message":"[DEBUG] Returning 0 commands to device test-device","service":"fleet-management-server","timestamp":"2025-06-28T20:40:00.198Z"}
+{"level":"info","message":"[DEBUG] POST /api/dashcams/test-device/command body: {\"command\":\"take_photo\",\"parameters\":{\"quality\":\"high\"}}","service":"fleet-management-server","timestamp":"2025-06-28T20:40:04.649Z"}
+{"level":"info","message":"[DEBUG] Command queued for device test-device: take_photo (ID: caebcf6c-ece8-44b4-8fe3-c19cd5154056)","service":"fleet-management-server","timestamp":"2025-06-28T20:40:04.649Z"}
+{"level":"info","message":"[DEBUG] GET /api/dashcams/test-device/commands - Device polling for commands","service":"fleet-management-server","timestamp":"2025-06-28T20:40:07.728Z"}
+{"level":"info","message":"[DEBUG] Returning 1 commands to device test-device","service":"fleet-management-server","timestamp":"2025-06-28T20:40:07.729Z"}

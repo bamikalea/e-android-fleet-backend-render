@@ -353,6 +353,13 @@ app.post('/api/dashcams/register', (req, res) => {
   
   dashcamData.set(deviceId, dashcam);
   
+  // Emit Socket.IO event for UI to see the device
+  io.emit('dashcam_status', {
+    deviceId,
+    status: 'online',
+    timestamp: new Date()
+  });
+  
   logger.info(`Device registered via HTTP: ${deviceId} (${model} ${version})`);
   res.json({ success: true, message: 'Device registered successfully' });
 });
@@ -372,6 +379,16 @@ app.post('/api/dashcams/:deviceId/status', (req, res) => {
   dashcam.batteryLevel = batteryLevel;
   dashcam.storageAvailable = storageAvailable;
   dashcam.jt808Enabled = jt808Enabled || dashcam.jt808Enabled;
+  
+  // Emit Socket.IO event for UI to see status update
+  io.emit('device_status', {
+    deviceId,
+    status: dashcam.status,
+    batteryLevel: dashcam.batteryLevel,
+    storageAvailable: dashcam.storageAvailable,
+    jt808Enabled: dashcam.jt808Enabled,
+    lastSeen: dashcam.lastSeen
+  });
   
   logger.info(`Status update: ${deviceId} - ${status}`);
   res.json({ success: true });
@@ -614,6 +631,23 @@ app.post('/api/dashcams/:deviceId/location', (req, res) => {
   dashcam.location = location;
   dashcam.lastSeen = new Date();
   
+  // Emit Socket.IO event for UI to see location update
+  io.emit('location_update', {
+    deviceId,
+    location: location,
+    timestamp: new Date()
+  });
+  
+  // Store JT808 data
+  if (!dashcam.jt808Data) {
+    dashcam.jt808Data = [];
+  }
+  dashcam.jt808Data.push({
+    type: 'location',
+    data: location,
+    timestamp: new Date()
+  });
+  
   logger.info(`Location update: ${deviceId} - ${latitude}, ${longitude}`);
   res.json({ 
     success: true, 
@@ -762,6 +796,13 @@ app.post('/api/dashcams/:deviceId/jt808/location', (req, res) => {
   dashcam.location = location;
   dashcam.lastSeen = new Date();
   dashcam.jt808Enabled = true;
+  
+  // Emit Socket.IO event for UI to see location update
+  io.emit('location_update', {
+    deviceId,
+    location: location,
+    timestamp: new Date()
+  });
   
   // Store JT808 data
   if (!dashcam.jt808Data) {
