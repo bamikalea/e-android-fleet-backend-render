@@ -394,65 +394,60 @@ app.post('/api/dashcams/:deviceId/status', (req, res) => {
   res.json({ success: true });
 });
 
-// Get pending commands for a device (polling endpoint)
+// Get commands for device (polling)
 app.get('/api/dashcams/:deviceId/commands', (req, res) => {
   const { deviceId } = req.params;
   logger.info(`[DEBUG] GET /api/dashcams/${deviceId}/commands - Device polling for commands`);
   
   const dashcam = dashcamData.get(deviceId);
   if (!dashcam) {
-    logger.warn('[DEBUG] 404: Dashcam not found for deviceId ' + deviceId);
     return res.status(404).json({ error: 'Dashcam not found' });
   }
   
-  // Get pending commands for this device
-  const commands = commandQueue.get(deviceId) || [];
+  // Return any pending commands
+  const commands = dashcam.pendingCommands || [];
+  dashcam.pendingCommands = []; // Clear commands after sending
   
-  // Clear the queue after sending
-  commandQueue.set(deviceId, []);
-  
-  logger.info(`[DEBUG] Returning ${commands.length} commands to device ${deviceId}`);
-  res.json(commands);
+  res.json({ commands });
 });
 
-// Send command to dashcam
-app.post('/api/dashcams/:deviceId/command', (req, res) => {
-  logger.info(`[DEBUG] POST /api/dashcams/${req.params.deviceId}/command body: ${JSON.stringify(req.body)}`);
+// Send command to device via HTTP (UI fallback)
+app.post('/api/dashcams/:deviceId/commands', (req, res) => {
   const { deviceId } = req.params;
   const { command, parameters } = req.body;
+  
+  logger.info(`[DEBUG] POST /api/dashcams/${deviceId}/commands - Command: ${command}`);
+  
   const dashcam = dashcamData.get(deviceId);
   if (!dashcam) {
-    logger.warn('[DEBUG] 404: Dashcam not found for deviceId ' + deviceId);
     return res.status(404).json({ error: 'Dashcam not found' });
   }
   
-  // Create command object
-  const commandObj = {
-    commandId: uuidv4(),
+  // Store command for device to pick up
+  if (!dashcam.pendingCommands) {
+    dashcam.pendingCommands = [];
+  }
+  
+  const commandData = {
+    id: Date.now().toString(),
     command: command,
     parameters: parameters || {},
     timestamp: new Date(),
     status: 'pending'
   };
   
-  // Add to command queue for the device
-  if (!commandQueue.has(deviceId)) {
-    commandQueue.set(deviceId, []);
-  }
-  commandQueue.get(deviceId).push(commandObj);
+  dashcam.pendingCommands.push(commandData);
   
-  logger.info(`[DEBUG] Command queued for device ${deviceId}: ${command} (ID: ${commandObj.commandId})`);
-  
-  // If device is connected via Socket.IO, send immediately
-  if (dashcam.socketId) {
-    io.to(dashcam.socketId).emit('command', commandObj);
-    logger.info(`[DEBUG] Command sent via Socket.IO to device ${deviceId}`);
-  }
+  // Emit Socket.IO event if available
+  io.emit('command_sent', {
+    deviceId,
+    command: commandData
+  });
   
   res.json({ 
     success: true, 
-    message: 'Command queued successfully',
-    commandId: commandObj.commandId
+    message: `Command '${command}' queued for device`,
+    commandId: commandData.id
   });
 });
 
