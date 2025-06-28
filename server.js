@@ -118,6 +118,11 @@ app.use((req, res, next) => {
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve the main UI at root
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // In-memory storage for dashcam data
 const dashcamData = new Map();
 const commandHistory = [];
