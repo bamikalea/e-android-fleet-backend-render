@@ -505,6 +505,13 @@
             socket.on('location_update', (data) => {
                 updateDeviceLocation(data);
             });
+
+            socket.on('dashcam_status', (data) => {
+                if (data.deviceId === deviceId) {
+                    addLogEntry(`Device status: ${data.status}`, 'info');
+                    loadDeviceInfo(); // Refresh device info when status changes
+                }
+            });
         }
 
         function updateConnectionStatus(status) {
@@ -574,13 +581,16 @@
 
         function loadDeviceInfo() {
             fetch(`/api/dashcams/${deviceId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateDeviceInfo(data.dashcam);
-                    } else {
-                        addLogEntry('Device not found', 'error');
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
+                    return response.json();
+                })
+                .then(data => {
+                    // Server returns device data directly, not wrapped in success property
+                    updateDeviceInfo(data);
+                    addLogEntry(`Device loaded: ${data.deviceId} (${data.status})`, 'success');
                 })
                 .catch(error => {
                     addLogEntry(`Error loading device info: ${error.message}`, 'error');
