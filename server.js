@@ -989,16 +989,105 @@ app.post('/api/dashcams/:deviceId/response', (req, res) => {
     logger.info(`[DEBUG] Cleared command ${command} from device ${deviceId}`);
   }
 
-  // Emit to UI via Socket.IO
+  // Emit to UI via Socket.IO with proper structure
   io.emit('command_response', {
     deviceId,
     command,
+    commandId,
+    success,
+    message,
+    timestamp: timestamp || new Date()
+  });
+
+  // Also emit a more detailed event for UI logging
+  io.emit('device_command_response', {
+    deviceId,
+    command,
+    commandId,
     success,
     message,
     timestamp: timestamp || new Date()
   });
 
   res.json({ success: true });
+});
+
+// Serve media files
+app.get('/api/media/:filename', (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(__dirname, 'uploads', filename);
+  
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).json({ error: 'File not found' });
+  }
+});
+
+// Get all media files
+app.get('/api/media', (req, res) => {
+  const { deviceId, type } = req.query;
+  
+  let files = [];
+  if (type === 'images' || type === 'photos') {
+    files = mediaFiles.images;
+  } else if (type === 'videos') {
+    files = mediaFiles.videos;
+  } else if (type === 'audio') {
+    files = mediaFiles.audio;
+  } else {
+    files = [
+      ...mediaFiles.images,
+      ...mediaFiles.videos,
+      ...mediaFiles.audio
+    ];
+  }
+  
+  // Filter by device if specified
+  if (deviceId) {
+    files = files.filter(f => f.deviceId === deviceId);
+  }
+  
+  // Sort by upload date (newest first)
+  files.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+  
+  res.json({ 
+    files: files.map(f => ({
+      id: f.id,
+      filename: f.filename,
+      originalName: f.originalName,
+      size: f.size,
+      mimetype: f.mimetype,
+      eventType: f.eventType,
+      uploadedAt: f.uploadedAt,
+      deviceId: f.deviceId,
+      url: `/api/media/${f.filename}`
+    }))
+  });
+});
+
+// Delete media file
+app.delete('/api/media/:filename', (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(__dirname, 'uploads', filename);
+  
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      
+      // Remove from memory storage
+      mediaFiles.images = mediaFiles.images.filter(f => f.filename !== filename);
+      mediaFiles.videos = mediaFiles.videos.filter(f => f.filename !== filename);
+      mediaFiles.audio = mediaFiles.audio.filter(f => f.filename !== filename);
+      
+      res.json({ success: true, message: 'File deleted successfully' });
+    } else {
+      res.status(404).json({ error: 'File not found' });
+    }
+  } catch (error) {
+    logger.error('Error deleting file:', error);
+    res.status(500).json({ error: 'Failed to delete file' });
+  }
 });
 
 // Start server
