@@ -406,8 +406,14 @@ app.get('/api/dashcams/:deviceId/commands', (req, res) => {
   
   // Return any pending commands
   const commands = dashcam.pendingCommands || [];
-  dashcam.pendingCommands = []; // Clear commands after sending
   
+  // Mark commands as sent but don't clear them yet
+  commands.forEach(cmd => {
+    cmd.status = 'sent';
+    cmd.sentAt = new Date();
+  });
+  
+  logger.info(`[DEBUG] Returning ${commands.length} commands to device ${deviceId}`);
   res.json({ commands });
 });
 
@@ -922,9 +928,22 @@ app.get('/api/dashcams/:deviceId/jt808', (req, res) => {
 // Receive command execution response from device
 app.post('/api/dashcams/:deviceId/response', (req, res) => {
   const { deviceId } = req.params;
-  const { command, success, message, timestamp } = req.body;
+  const { command, success, message, timestamp, commandId } = req.body;
 
   logger.info(`[DEBUG] Command response from device ${deviceId}: ${command} - ${success ? 'SUCCESS' : 'FAILED'} - ${message}`);
+
+  // Clear the command from pending commands if it was successful
+  const dashcam = dashcamData.get(deviceId);
+  if (dashcam && dashcam.pendingCommands) {
+    if (commandId) {
+      // Remove specific command by ID
+      dashcam.pendingCommands = dashcam.pendingCommands.filter(cmd => cmd.id !== commandId);
+    } else {
+      // Remove command by name (fallback)
+      dashcam.pendingCommands = dashcam.pendingCommands.filter(cmd => cmd.command !== command);
+    }
+    logger.info(`[DEBUG] Cleared command ${command} from device ${deviceId}`);
+  }
 
   // Emit to UI via Socket.IO
   io.emit('command_response', {
