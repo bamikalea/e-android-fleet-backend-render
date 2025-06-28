@@ -475,43 +475,64 @@
         function initializeConnection() {
             updateConnectionStatus('connecting');
             
-            socket = io();
-            
-            socket.on('connect', () => {
-                isConnected = true;
-                updateConnectionStatus('connected');
-                addLogEntry('Connected to server', 'info');
+            // Try Socket.IO connection
+            try {
+                socket = io();
+                
+                socket.on('connect', () => {
+                    isConnected = true;
+                    updateConnectionStatus('connected');
+                    addLogEntry('Connected to server via WebSocket', 'info');
+                    loadDeviceInfo();
+                });
+
+                socket.on('disconnect', () => {
+                    isConnected = false;
+                    updateConnectionStatus('disconnected');
+                    addLogEntry('Disconnected from server', 'error');
+                });
+
+                socket.on('command_response', (data) => {
+                    addLogEntry(`Command response: ${data.message}`, data.success ? 'success' : 'error');
+                });
+
+                socket.on('device_status', (data) => {
+                    updateDeviceInfo(data);
+                });
+
+                socket.on('jt808_alert', (data) => {
+                    addLogEntry(`JT808 Alert: ${data.alert.alertType} - ${data.alert.description}`, 'warning');
+                });
+
+                socket.on('location_update', (data) => {
+                    updateDeviceLocation(data);
+                });
+
+                socket.on('dashcam_status', (data) => {
+                    if (data.deviceId === deviceId) {
+                        addLogEntry(`Device status: ${data.status}`, 'info');
+                        loadDeviceInfo(); // Refresh device info when status changes
+                    }
+                });
+
+                // Set timeout for Socket.IO connection
+                setTimeout(() => {
+                    if (!isConnected) {
+                        addLogEntry('WebSocket connection failed, using HTTP polling', 'warning');
+                        updateConnectionStatus('connected'); // Show as connected for HTTP
+                        loadDeviceInfo();
+                        // Start polling for device updates
+                        setInterval(loadDeviceInfo, 5000); // Poll every 5 seconds
+                    }
+                }, 3000);
+
+            } catch (error) {
+                addLogEntry('WebSocket not available, using HTTP polling', 'warning');
+                updateConnectionStatus('connected'); // Show as connected for HTTP
                 loadDeviceInfo();
-            });
-
-            socket.on('disconnect', () => {
-                isConnected = false;
-                updateConnectionStatus('disconnected');
-                addLogEntry('Disconnected from server', 'error');
-            });
-
-            socket.on('command_response', (data) => {
-                addLogEntry(`Command response: ${data.message}`, data.success ? 'success' : 'error');
-            });
-
-            socket.on('device_status', (data) => {
-                updateDeviceInfo(data);
-            });
-
-            socket.on('jt808_alert', (data) => {
-                addLogEntry(`JT808 Alert: ${data.alert.alertType} - ${data.alert.description}`, 'warning');
-            });
-
-            socket.on('location_update', (data) => {
-                updateDeviceLocation(data);
-            });
-
-            socket.on('dashcam_status', (data) => {
-                if (data.deviceId === deviceId) {
-                    addLogEntry(`Device status: ${data.status}`, 'info');
-                    loadDeviceInfo(); // Refresh device info when status changes
-                }
-            });
+                // Start polling for device updates
+                setInterval(loadDeviceInfo, 5000); // Poll every 5 seconds
+            }
         }
 
         function updateConnectionStatus(status) {
@@ -537,7 +558,7 @@
         }
 
         function sendCommand(command, parameters = {}) {
-            if (!isConnected) {
+            if (!isConnected && !socket) {
                 addLogEntry('Not connected to server', 'error');
                 return;
             }
@@ -548,25 +569,36 @@
                 timestamp: new Date()
             };
 
-            addLogEntry(`Sending command: ${command}`, 'info');
+            if (socket && socket.connected) {
+                // Use Socket.IO if available
+                socket.emit('send_command', commandData);
+                addLogEntry(`Sending command: ${command}`, 'info');
+            } else {
+                // Fallback to HTTP
+                sendCommandViaHTTP(command, parameters);
+            }
+        }
 
-            fetch(`/api/dashcams/${deviceId}/command`, {
+        function sendCommandViaHTTP(command, parameters = {}) {
+            const url = `/api/dashcams/${deviceId}/commands`;
+            const data = {
+                command: command,
+                parameters: parameters
+            };
+
+            fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(commandData)
+                body: JSON.stringify(data)
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    addLogEntry(`Command sent successfully: ${command}`, 'success');
-                } else {
-                    addLogEntry(`Command failed: ${data.error}`, 'error');
-                }
+                addLogEntry(`Command sent via HTTP: ${command} - ${data.message || 'Success'}`, data.success ? 'success' : 'error');
             })
             .catch(error => {
-                addLogEntry(`Network error: ${error.message}`, 'error');
+                addLogEntry(`HTTP command failed: ${error.message}`, 'error');
             });
         }
 
