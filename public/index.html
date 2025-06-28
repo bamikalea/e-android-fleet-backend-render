@@ -471,13 +471,16 @@
 
         // Initialize connection
         function initializeConnection() {
+            console.log('initializeConnection called');
             updateConnectionStatus('connecting');
             
             // Try Socket.IO connection
             try {
+                console.log('Attempting Socket.IO connection...');
                 socket = io();
                 
                 socket.on('connect', () => {
+                    console.log('Socket.IO connected');
                     isConnected = true;
                     updateConnectionStatus('connected');
                     addLogEntry('Connected to server via WebSocket', 'info');
@@ -485,6 +488,7 @@
                 });
 
                 socket.on('disconnect', () => {
+                    console.log('Socket.IO disconnected');
                     isConnected = false;
                     updateConnectionStatus('disconnected');
                     addLogEntry('Disconnected from server', 'error');
@@ -739,7 +743,11 @@
         }
 
         // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', initializeConnection);
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, initializing connection...');
+            console.log('Device ID:', deviceId);
+            initializeConnection();
+        });
 
         // Auto-refresh device info every 30 seconds
         setInterval(() => {
