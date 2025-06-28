@@ -586,12 +586,28 @@ app.post('/api/dashcams/:deviceId/location', (req, res) => {
     timestamp: timestamp || new Date()
   };
   
-  // Update dashcam location
-  const dashcam = dashcamData.get(deviceId);
-  if (dashcam) {
-    dashcam.location = location;
-    dashcam.lastSeen = new Date();
+  // Get or create dashcam entry
+  let dashcam = dashcamData.get(deviceId);
+  if (!dashcam) {
+    // Auto-register device if it doesn't exist
+    dashcam = {
+      deviceId,
+      model: 'Unknown',
+      version: '1.0',
+      status: 'online',
+      lastSeen: new Date(),
+      registeredAt: new Date(),
+      location: null,
+      events: [],
+      jt808Enabled: false
+    };
+    dashcamData.set(deviceId, dashcam);
+    logger.info(`Auto-registered device: ${deviceId} via location update`);
   }
+  
+  // Update dashcam location
+  dashcam.location = location;
+  dashcam.lastSeen = new Date();
   
   logger.info(`Location update: ${deviceId} - ${latitude}, ${longitude}`);
   res.json({ 
@@ -699,6 +715,166 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     memory: process.memoryUsage(),
     activeConnections: Object.keys(io.sockets.sockets).length
+  });
+});
+
+// JT808 Location endpoint
+app.post('/api/dashcams/:deviceId/jt808/location', (req, res) => {
+  const { deviceId } = req.params;
+  const { latitude, longitude, altitude, speed, bearing, warnBit, statusBit, timestamp } = req.body;
+  
+  const location = {
+    latitude: parseFloat(latitude),
+    longitude: parseFloat(longitude),
+    altitude: parseFloat(altitude) || 0,
+    speed: parseFloat(speed) || 0,
+    bearing: parseFloat(bearing) || 0,
+    warnBit: parseInt(warnBit) || 0,
+    statusBit: parseInt(statusBit) || 0,
+    timestamp: timestamp || new Date()
+  };
+  
+  // Get or create dashcam entry
+  let dashcam = dashcamData.get(deviceId);
+  if (!dashcam) {
+    // Auto-register device if it doesn't exist
+    dashcam = {
+      deviceId,
+      model: 'Unknown',
+      version: '1.0',
+      status: 'online',
+      lastSeen: new Date(),
+      registeredAt: new Date(),
+      location: null,
+      events: [],
+      jt808Enabled: true
+    };
+    dashcamData.set(deviceId, dashcam);
+    logger.info(`Auto-registered device: ${deviceId} via JT808 location update`);
+  }
+  
+  // Update dashcam location
+  dashcam.location = location;
+  dashcam.lastSeen = new Date();
+  dashcam.jt808Enabled = true;
+  
+  // Store JT808 data
+  if (!dashcam.jt808Data) {
+    dashcam.jt808Data = [];
+  }
+  dashcam.jt808Data.push({
+    type: 'location',
+    data: location,
+    timestamp: new Date()
+  });
+  
+  logger.info(`JT808 Location update: ${deviceId} - ${latitude}, ${longitude} (warnBit: ${warnBit}, statusBit: ${statusBit})`);
+  res.json({ 
+    success: true, 
+    message: 'JT808 location updated successfully'
+  });
+});
+
+// JT808 Alert endpoint
+app.post('/api/dashcams/:deviceId/jt808/alert', (req, res) => {
+  const { deviceId } = req.params;
+  const { alertType, warnBit, statusBit, latitude, longitude, altitude, speed, description, timestamp } = req.body;
+  
+  const alert = {
+    id: uuidv4(),
+    deviceId,
+    alertType: alertType || 'unknown',
+    warnBit: parseInt(warnBit) || 0,
+    statusBit: parseInt(statusBit) || 0,
+    location: {
+      latitude: parseFloat(latitude) || 0,
+      longitude: parseFloat(longitude) || 0,
+      altitude: parseFloat(altitude) || 0,
+      speed: parseFloat(speed) || 0
+    },
+    description: description || 'JT808 Alert',
+    timestamp: timestamp || new Date()
+  };
+  
+  // Get or create dashcam entry
+  let dashcam = dashcamData.get(deviceId);
+  if (!dashcam) {
+    // Auto-register device if it doesn't exist
+    dashcam = {
+      deviceId,
+      model: 'Unknown',
+      version: '1.0',
+      status: 'online',
+      lastSeen: new Date(),
+      registeredAt: new Date(),
+      location: null,
+      events: [],
+      jt808Enabled: true
+    };
+    dashcamData.set(deviceId, dashcam);
+    logger.info(`Auto-registered device: ${deviceId} via JT808 alert`);
+  }
+  
+  // Update dashcam
+  dashcam.lastSeen = new Date();
+  dashcam.jt808Enabled = true;
+  
+  // Store JT808 data
+  if (!dashcam.jt808Data) {
+    dashcam.jt808Data = [];
+  }
+  dashcam.jt808Data.push({
+    type: 'alert',
+    data: alert,
+    timestamp: new Date()
+  });
+  
+  // Add to events
+  dashcam.events.push({
+    type: 'jt808_alert',
+    data: alert,
+    timestamp: new Date()
+  });
+  
+  // Add to event log
+  eventLog.push({
+    deviceId,
+    eventType: 'jt808_alert',
+    eventData: alert,
+    timestamp: new Date()
+  });
+  
+  // Emit to connected clients
+  io.emit('jt808_alert', {
+    deviceId,
+    alert,
+    timestamp: new Date()
+  });
+  
+  logger.info(`JT808 Alert: ${deviceId} - ${alertType} (warnBit: ${warnBit}, statusBit: ${statusBit})`);
+  res.json({ 
+    success: true, 
+    message: 'JT808 alert received successfully',
+    alertId: alert.id
+  });
+});
+
+// Get JT808 data for a device
+app.get('/api/dashcams/:deviceId/jt808', (req, res) => {
+  const { deviceId } = req.params;
+  const dashcam = dashcamData.get(deviceId);
+  
+  if (!dashcam) {
+    return res.status(404).json({ 
+      error: 'Device not found',
+      deviceId 
+    });
+  }
+  
+  res.json({ 
+    deviceId,
+    jt808Enabled: dashcam.jt808Enabled || false,
+    data: dashcam.jt808Data || []
   });
 });
 
