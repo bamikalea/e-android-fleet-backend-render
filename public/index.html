@@ -561,7 +561,10 @@
         }
 
         function sendCommand(command, parameters = {}) {
+            console.log('sendCommand called:', command, parameters);
+            
             if (!isConnected && !socket) {
+                console.log('Not connected to server');
                 addLogEntry('Not connected to server', 'error');
                 return;
             }
@@ -573,22 +576,31 @@
                 deviceId: deviceId
             };
 
+            console.log('Sending command data:', commandData);
+
             if (socket && socket.connected) {
                 // Use Socket.IO if available
+                console.log('Using Socket.IO to send command');
                 socket.emit('send_command', commandData);
                 addLogEntry(`Sending command: ${command}`, 'info');
             } else {
                 // Fallback to HTTP
+                console.log('Using HTTP fallback to send command');
                 sendCommandViaHTTP(command, parameters);
             }
         }
 
         function sendCommandViaHTTP(command, parameters = {}) {
+            console.log('sendCommandViaHTTP called:', command, parameters);
+            
             const url = `/api/dashcams/${deviceId}/commands`;
             const data = {
                 command: command,
                 parameters: parameters
             };
+
+            console.log('HTTP request URL:', url);
+            console.log('HTTP request data:', data);
 
             fetch(url, {
                 method: 'POST',
@@ -597,8 +609,12 @@
                 },
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('HTTP response status:', response.status);
+                return response.json();
+            })
             .then(data => {
+                console.log('HTTP response data:', data);
                 addLogEntry(`Command sent via HTTP: ${command} - ${data.message || 'Success'}`, data.success ? 'success' : 'error');
                 
                 // If command was queued successfully, start polling for response
@@ -607,6 +623,7 @@
                 }
             })
             .catch(error => {
+                console.error('HTTP command error:', error);
                 addLogEntry(`HTTP command failed: ${error.message}`, 'error');
             });
         }
