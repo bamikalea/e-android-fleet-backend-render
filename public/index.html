@@ -494,6 +494,10 @@
                     addLogEntry(`Command response: ${data.message}`, data.success ? 'success' : 'error');
                 });
 
+                socket.on('command_sent', (data) => {
+                    addLogEntry(`Command queued: ${data.command.command} (ID: ${data.command.id})`, 'info');
+                });
+
                 socket.on('device_status', (data) => {
                     updateDeviceInfo(data);
                 });
@@ -565,7 +569,8 @@
             const commandData = {
                 command: command,
                 parameters: parameters,
-                timestamp: new Date()
+                timestamp: new Date(),
+                deviceId: deviceId
             };
 
             if (socket && socket.connected) {
@@ -595,10 +600,49 @@
             .then(response => response.json())
             .then(data => {
                 addLogEntry(`Command sent via HTTP: ${command} - ${data.message || 'Success'}`, data.success ? 'success' : 'error');
+                
+                // If command was queued successfully, start polling for response
+                if (data.success && data.commandId) {
+                    pollForCommandResponse(data.commandId, command);
+                }
             })
             .catch(error => {
                 addLogEntry(`HTTP command failed: ${error.message}`, 'error');
             });
+        }
+
+        function pollForCommandResponse(commandId, commandName) {
+            // Poll for command response every 2 seconds for up to 30 seconds
+            let attempts = 0;
+            const maxAttempts = 15;
+            
+            const pollInterval = setInterval(() => {
+                attempts++;
+                
+                // Check if command was executed by looking at the device status
+                fetch(`/api/dashcams/${deviceId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // If we have recent activity, assume command was processed
+                        const lastSeen = new Date(data.lastSeen);
+                        const now = new Date();
+                        const timeDiff = now - lastSeen;
+                        
+                        if (timeDiff < 10000) { // Within 10 seconds
+                            addLogEntry(`Command ${commandName} appears to have been executed`, 'success');
+                            clearInterval(pollInterval);
+                        } else if (attempts >= maxAttempts) {
+                            addLogEntry(`Command ${commandName} may not have been executed (timeout)`, 'warning');
+                            clearInterval(pollInterval);
+                        }
+                    })
+                    .catch(error => {
+                        if (attempts >= maxAttempts) {
+                            addLogEntry(`Failed to check command status: ${error.message}`, 'error');
+                            clearInterval(pollInterval);
+                        }
+                    });
+            }, 2000);
         }
 
         function sendTTSCommand() {
@@ -607,6 +651,20 @@
                 addLogEntry('TTS message cannot be empty', 'error');
                 return;
             }
+            
+            // Disable the button to prevent multiple sends
+            const button = document.querySelector('button[onclick="sendTTSCommand()"]');
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Sending...';
+                
+                // Re-enable after 3 seconds
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.textContent = 'Send Message';
+                }, 3000);
+            }
+            
             sendCommand('tts_speak', { message: message });
         }
 

@@ -136,7 +136,51 @@ const mediaFiles = {
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  logger.info(`Client connected: ${socket.id}`);
+  logger.info(`[DEBUG] Client connected: ${socket.id}`);
+
+  // Handle command sending from UI
+  socket.on('send_command', (data) => {
+    const { command, parameters, deviceId: targetDeviceId } = data;
+    const deviceId = targetDeviceId || '13f15b0094dcc44a'; // Default device ID
+    
+    logger.info(`[DEBUG] Socket.IO command received: ${command} for device ${deviceId}`);
+    
+    // Forward command to device via HTTP
+    const dashcam = dashcamData.get(deviceId);
+    if (!dashcam) {
+      socket.emit('command_response', {
+        success: false,
+        message: 'Device not found'
+      });
+      return;
+    }
+    
+    // Store command for device to pick up
+    if (!dashcam.pendingCommands) {
+      dashcam.pendingCommands = [];
+    }
+    
+    const commandData = {
+      id: Date.now().toString(),
+      command: command,
+      parameters: parameters || {},
+      timestamp: new Date(),
+      status: 'pending'
+    };
+    
+    dashcam.pendingCommands.push(commandData);
+    
+    // Emit to UI
+    io.emit('command_sent', {
+      deviceId,
+      command: commandData
+    });
+    
+    socket.emit('command_response', {
+      success: true,
+      message: `Command '${command}' queued for device`
+    });
+  });
 
   // Handle dashcam registration
   socket.on('dashcam_register', (data) => {
@@ -241,7 +285,7 @@ io.on('connection', (socket) => {
 
   // Handle disconnection
   socket.on('disconnect', () => {
-    logger.info(`Client disconnected: ${socket.id}`);
+    logger.info(`[DEBUG] Client disconnected: ${socket.id}`);
     
     // Mark dashcam as offline
     for (const [deviceId, dashcam] of dashcamData.entries()) {
