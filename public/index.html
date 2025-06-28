@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fleet Management Command Center</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .panel h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .device-info {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .device-info h3 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+
+        .device-info p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+
+        .command-section {
+            margin-bottom: 20px;
+        }
+
+        .command-group {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+        }
+
+        .command-group h4 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .command-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .parameter-input {
+            margin: 10px 0;
+        }
+
+        .parameter-input label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .parameter-input input, .parameter-input select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .feedback-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .feedback-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .clear-btn {
+            background: #6c757d;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+
+        .clear-btn:hover {
+            background: #5a6268;
+        }
+
+        .feedback-log {
+            flex: 1;
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .log-success {
+            background: rgba(40, 167, 69, 0.2);
+            border-left: 3px solid #28a745;
+        }
+
+        .log-error {
+            background: rgba(220, 53, 69, 0.2);
+            border-left: 3px solid #dc3545;
+        }
+
+        .log-info {
+            background: rgba(23, 162, 184, 0.2);
+            border-left: 3px solid #17a2b8;
+        }
+
+        .log-warning {
+            background: rgba(255, 193, 7, 0.2);
+            border-left: 3px solid #ffc107;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online {
+            background: #28a745;
+        }
+
+        .status-offline {
+            background: #dc3545;
+        }
+
+        .status-unknown {
+            background: #6c757d;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+        }
+
+        .connection-connected {
+            background: #28a745;
+        }
+
+        .connection-disconnected {
+            background: #dc3545;
+        }
+
+        .connection-connecting {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .command-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-status" id="connectionStatus">
+        <span class="status-indicator status-unknown"></span>
+        Connecting...
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🚗 Fleet Management Command Center</h1>
+            <p>Real-time device control and monitoring</p>
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <h2>📱 Device Control</h2>
+                
+                <div class="device-info" id="deviceInfo">
+                    <h3>Device Status</h3>
+                    <p><strong>Device ID:</strong> <span id="deviceId">Loading...</span></p>
+                    <p><strong>Status:</strong> <span id="deviceStatus">Unknown</span></p>
+                    <p><strong>Last Seen:</strong> <span id="lastSeen">Never</span></p>
+                    <p><strong>Location:</strong> <span id="deviceLocation">No data</span></p>
+                </div>
+
+                <div class="command-section">
+                    <div class="command-group">
+                        <h4>📸 Media Capture</h4>
+                        <div class="command-buttons">
+                            <button class="btn btn-primary" onclick="sendCommand('capture_photo')">
+                                📷 Take Photo
+                            </button>
+                            <button class="btn btn-success" onclick="sendCommand('start_video_recording')">
+                                🎥 Start Recording
+                            </button>
+                            <button class="btn btn-danger" onclick="sendCommand('stop_video_recording')">
+                                ⏹️ Stop Recording
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="command-group">
+                        <h4>🎤 Audio Control</h4>
+                        <div class="command-buttons">
+                            <button class="btn btn-info" onclick="sendCommand('start_audio_recording')">
+                                🎤 Start Audio
+                            </button>
+                            <button class="btn btn-warning" onclick="sendCommand('stop_audio_recording')">
+                                ⏹️ Stop Audio
+                            </button>
+                            <button class="btn btn-primary" onclick="sendCommand('start_two_way_audio')">
+                                🔄 Start 2-Way Audio
+                            </button>
+                            <button class="btn btn-danger" onclick="sendCommand('stop_two_way_audio')">
+                                ⏹️ Stop 2-Way Audio
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="command-group">
+                        <h4>🔊 TTS (Text-to-Speech)</h4>
+                        <div class="parameter-input">
+                            <label for="ttsMessage">Message to speak:</label>
+                            <input type="text" id="ttsMessage" placeholder="Enter message to speak..." value="Hello, this is a test message">
+                        </div>
+                        <button class="btn btn-info" onclick="sendTTSCommand()">
+                            🔊 Speak Message
+                        </button>
+                    </div>
+
+                    <div class="command-group">
+                        <h4>📡 Live Streaming</h4>
+                        <div class="command-buttons">
+                            <button class="btn btn-success" onclick="sendCommand('start_live_stream')">
+                                📺 Start Live Stream
+                            </button>
+                            <button class="btn btn-danger" onclick="sendCommand('stop_live_stream')">
+                                ⏹️ Stop Live Stream
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="command-group">
+                        <h4>⚙️ System Control</h4>
+                        <div class="command-buttons">
+                            <button class="btn btn-warning" onclick="sendCommand('restart_app')">
+                                🔄 Restart App
+                            </button>
+                            <button class="btn btn-danger" onclick="sendCommand('clear_apn_proxy')">
+                                🌐 Clear APN Proxy
+                            </button>
+                            <button class="btn btn-info" onclick="sendCommand('get_device_info')">
+                                ℹ️ Get Device Info
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="command-group">
+                        <h4>🚨 Alert Testing</h4>
+                        <div class="command-buttons">
+                            <button class="btn btn-danger" onclick="sendCommand('test_emergency_alert')">
+                                🚨 Test Emergency
+                            </button>
+                            <button class="btn btn-warning" onclick="sendCommand('test_overspeed_alert')">
+                                ⚡ Test Overspeed
+                            </button>
+                            <button class="btn btn-info" onclick="sendCommand('test_fatigue_alert')">
+                                😴 Test Fatigue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>📊 Real-time Feedback</h2>
+                
+                <div class="feedback-panel">
+                    <div class="feedback-header">
+                        <h3>Command Response Log</h3>
+                        <button class="clear-btn" onclick="clearLog()">Clear Log</button>
+                    </div>
+                    <div class="feedback-log" id="feedbackLog">
+                        <div class="log-entry log-info">
+                            <span class="status-indicator status-unknown"></span>
+                            Command center initialized. Waiting for device connection...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket;
+        let deviceId = '13f15b0094dcc44a'; // Default device ID
+        let isConnected = false;
+
+        // Initialize connection
+        function initializeConnection() {
+            updateConnectionStatus('connecting');
+            
+            socket = io();
+            
+            socket.on('connect', () => {
+                isConnected = true;
+                updateConnectionStatus('connected');
+                addLogEntry('Connected to server', 'info');
+                loadDeviceInfo();
+            });
+
+            socket.on('disconnect', () => {
+                isConnected = false;
+                updateConnectionStatus('disconnected');
+                addLogEntry('Disconnected from server', 'error');
+            });
+
+            socket.on('command_response', (data) => {
+                addLogEntry(`Command response: ${data.message}`, data.success ? 'success' : 'error');
+            });
+
+            socket.on('device_status', (data) => {
+                updateDeviceInfo(data);
+            });
+
+            socket.on('jt808_alert', (data) => {
+                addLogEntry(`JT808 Alert: ${data.alert.alertType} - ${data.alert.description}`, 'warning');
+            });
+
+            socket.on('location_update', (data) => {
+                updateDeviceLocation(data);
+            });
+        }
+
+        function updateConnectionStatus(status) {
+            const statusEl = document.getElementById('connectionStatus');
+            const indicator = statusEl.querySelector('.status-indicator');
+            
+            statusEl.className = `connection-status connection-${status}`;
+            
+            switch(status) {
+                case 'connected':
+                    indicator.className = 'status-indicator status-online';
+                    statusEl.innerHTML = '<span class="status-indicator status-online"></span>Connected';
+                    break;
+                case 'disconnected':
+                    indicator.className = 'status-indicator status-offline';
+                    statusEl.innerHTML = '<span class="status-indicator status-offline"></span>Disconnected';
+                    break;
+                case 'connecting':
+                    indicator.className = 'status-indicator status-unknown';
+                    statusEl.innerHTML = '<span class="loading"></span>Connecting...';
+                    break;
+            }
+        }
+
+        function sendCommand(command, parameters = {}) {
+            if (!isConnected) {
+                addLogEntry('Not connected to server', 'error');
+                return;
+            }
+
+            const commandData = {
+                command: command,
+                parameters: parameters,
+                timestamp: new Date()
+            };
+
+            addLogEntry(`Sending command: ${command}`, 'info');
+
+            fetch(`/api/dashcams/${deviceId}/command`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(commandData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addLogEntry(`Command sent successfully: ${command}`, 'success');
+                } else {
+                    addLogEntry(`Command failed: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                addLogEntry(`Network error: ${error.message}`, 'error');
+            });
+        }
+
+        function sendTTSCommand() {
+            const message = document.getElementById('ttsMessage').value;
+            if (!message.trim()) {
+                addLogEntry('TTS message cannot be empty', 'error');
+                return;
+            }
+            sendCommand('tts_speak', { message: message });
+        }
+
+        function loadDeviceInfo() {
+            fetch(`/api/dashcams/${deviceId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateDeviceInfo(data.dashcam);
+                    } else {
+                        addLogEntry('Device not found', 'error');
+                    }
+                })
+                .catch(error => {
+                    addLogEntry(`Error loading device info: ${error.message}`, 'error');
+                });
+        }
+
+        function updateDeviceInfo(data) {
+            document.getElementById('deviceId').textContent = data.deviceId || 'Unknown';
+            document.getElementById('deviceStatus').textContent = data.status || 'Unknown';
+            document.getElementById('lastSeen').textContent = data.lastSeen ? new Date(data.lastSeen).toLocaleString() : 'Never';
+            
+            if (data.location) {
+                document.getElementById('deviceLocation').textContent = 
+                    `${data.location.latitude.toFixed(6)}, ${data.location.longitude.toFixed(6)}`;
+            }
+        }
+
+        function updateDeviceLocation(data) {
+            if (data.location) {
+                document.getElementById('deviceLocation').textContent = 
+                    `${data.location.latitude.toFixed(6)}, ${data.location.longitude.toFixed(6)}`;
+            }
+        }
+
+        function addLogEntry(message, type = 'info') {
+            const log = document.getElementById('feedbackLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="status-indicator status-${type === 'success' ? 'online' : type === 'error' ? 'offline' : 'unknown'}"></span>[${timestamp}] ${message}`;
+            
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('feedbackLog').innerHTML = 
+                '<div class="log-entry log-info"><span class="status-indicator status-unknown"></span>Log cleared</div>';
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializeConnection);
+
+        // Auto-refresh device info every 30 seconds
+        setInterval(() => {
+            if (isConnected) {
+                loadDeviceInfo();
+            }
+        }, 30000);
+    </script>
+</body>
+</html> 
