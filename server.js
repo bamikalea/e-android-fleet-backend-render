@@ -919,6 +919,25 @@ app.get('/api/dashcams/:deviceId/jt808', (req, res) => {
   });
 });
 
+// Receive command execution response from device
+app.post('/api/dashcams/:deviceId/response', (req, res) => {
+  const { deviceId } = req.params;
+  const { command, success, message, timestamp } = req.body;
+
+  logger.info(`[DEBUG] Command response from device ${deviceId}: ${command} - ${success ? 'SUCCESS' : 'FAILED'} - ${message}`);
+
+  // Emit to UI via Socket.IO
+  io.emit('command_response', {
+    deviceId,
+    command,
+    success,
+    message,
+    timestamp: timestamp || new Date()
+  });
+
+  res.json({ success: true });
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {

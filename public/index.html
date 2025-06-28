@@ -334,11 +334,9 @@
     </style>
 </head>
 <body>
-    <div class="connection-status" id="connectionStatus">
-        <span class="status-indicator status-unknown"></span>
-        Connecting...
+    <div id="connectionStatus" class="connection-status">
+        <span class="status-indicator status-unknown"></span>Connecting...
     </div>
-
     <div class="container">
         <div class="header">
             <h1>🚗 Fleet Management Command Center</h1>
@@ -537,6 +535,7 @@
 
         function updateConnectionStatus(status) {
             const statusEl = document.getElementById('connectionStatus');
+            if (!statusEl) return; // Prevents the null error
             const indicator = statusEl.querySelector('.status-indicator');
             
             statusEl.className = `connection-status connection-${status}`;
