@@ -52,12 +52,20 @@ fs.ensureDirSync('uploads/thumbnails');
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const uploadDir = 'uploads/';
-        fs.ensureDirSync(uploadDir);
-        cb(null, uploadDir);
+        try {
+            fs.ensureDirSync(uploadDir);
+            logger.info(`[MULTER] Upload directory ensured: ${uploadDir}`);
+            cb(null, uploadDir);
+        } catch (error) {
+            logger.error(`[MULTER] Error creating upload directory: ${error.message}`, error);
+            cb(error);
+        }
     },
     filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+        const filename = file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname);
+        logger.info(`[MULTER] Generated filename: ${filename}`);
+        cb(null, filename);
     }
 });
 
@@ -67,15 +75,33 @@ const upload = multer({
         fileSize: 50 * 1024 * 1024 // 50MB limit
     },
     fileFilter: function (req, file, cb) {
+        logger.info(`[MULTER] File filter check: ${file.originalname}, mimetype: ${file.mimetype}`);
         // Accept images, videos, and audio files
         if (file.mimetype.startsWith('image/') || 
             file.mimetype.startsWith('video/') || 
             file.mimetype.startsWith('audio/')) {
+            logger.info(`[MULTER] File accepted: ${file.originalname}`);
             cb(null, true);
         } else {
+            logger.warn(`[MULTER] File rejected (invalid type): ${file.originalname}, mimetype: ${file.mimetype}`);
             cb(new Error('Invalid file type'), false);
         }
     }
+});
+
+// Error handling middleware for multer
+app.use((error, req, res, next) => {
+    if (error instanceof multer.MulterError) {
+        logger.error(`[MULTER ERROR] ${error.code}: ${error.message}`);
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ error: 'File too large. Maximum size is 50MB.' });
+        }
+        return res.status(400).json({ error: `Upload error: ${error.message}` });
+    } else if (error) {
+        logger.error(`[UPLOAD ERROR] ${error.message}`, error);
+        return res.status(500).json({ error: 'Internal server error during upload' });
+    }
+    next();
 });
 
 // Security middleware
@@ -761,33 +787,48 @@ app.post('/api/dashcams/:deviceId/media', upload.single('media'), (req, res) => 
 
 // Photo upload endpoint
 app.post('/api/dashcams/:deviceId/photo', upload.single('photo'), (req, res) => {
-  const { deviceId } = req.params;
-  const { eventType } = req.body;
-  
-  if (!req.file) {
-    return res.status(400).json({ error: 'No photo uploaded' });
+  try {
+    const { deviceId } = req.params;
+    const { eventType } = req.body;
+    
+    logger.info(`[PHOTO UPLOAD] Received photo upload request for device: ${deviceId}`);
+    logger.info(`[PHOTO UPLOAD] Request body: ${JSON.stringify(req.body)}`);
+    logger.info(`[PHOTO UPLOAD] Request file: ${req.file ? 'Present' : 'Missing'}`);
+    
+    if (!req.file) {
+      logger.error(`[PHOTO UPLOAD] No photo uploaded for device: ${deviceId}`);
+      return res.status(400).json({ error: 'No photo uploaded' });
+    }
+    
+    logger.info(`[PHOTO UPLOAD] File details: ${req.file.originalname}, size: ${req.file.size}, mimetype: ${req.file.mimetype}`);
+    
+    const photoFile = {
+      id: uuidv4(),
+      deviceId,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      path: req.file.path,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      eventType: eventType || 'manual',
+      uploadedAt: new Date()
+    };
+    
+    mediaFiles.images.push(photoFile);
+    
+    logger.info(`[PHOTO UPLOAD] Photo uploaded successfully: ${deviceId} - ${req.file.originalname}`);
+    res.json({ 
+      success: true, 
+      message: 'Photo uploaded successfully',
+      fileId: photoFile.id
+    });
+  } catch (error) {
+    logger.error(`[PHOTO UPLOAD] Error processing photo upload: ${error.message}`, error);
+    res.status(500).json({ 
+      error: 'Internal server error during photo upload',
+      details: error.message 
+    });
   }
-  
-  const photoFile = {
-    id: uuidv4(),
-    deviceId,
-    filename: req.file.filename,
-    originalName: req.file.originalname,
-    path: req.file.path,
-    size: req.file.size,
-    mimetype: req.file.mimetype,
-    eventType: eventType || 'manual',
-    uploadedAt: new Date()
-  };
-  
-  mediaFiles.images.push(photoFile);
-  
-  logger.info(`Photo uploaded: ${deviceId} - ${req.file.originalname}`);
-  res.json({ 
-    success: true, 
-    message: 'Photo uploaded successfully',
-    fileId: photoFile.id
-  });
 });
 
 // Video upload endpoint
