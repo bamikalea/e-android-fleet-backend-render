@@ -134,6 +134,24 @@ const mediaFiles = {
     audio: []
 };
 
+const DASHCAM_DATA_FILE = path.join(__dirname, 'dashcamData.json');
+
+function saveDashcamData() {
+  fs.writeFileSync(DASHCAM_DATA_FILE, JSON.stringify(Array.from(dashcamData.entries()), null, 2));
+}
+
+function loadDashcamData() {
+  if (fs.existsSync(DASHCAM_DATA_FILE)) {
+    const data = JSON.parse(fs.readFileSync(DASHCAM_DATA_FILE));
+    for (const [deviceId, dashcam] of data) {
+      dashcamData.set(deviceId, dashcam);
+    }
+  }
+}
+
+// Load dashcam data on startup
+loadDashcamData();
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   logger.info(`[DEBUG] Client connected: ${socket.id}`);
@@ -201,6 +219,8 @@ io.on('connection', (socket) => {
       status: 'online',
       timestamp: new Date()
     });
+    
+    saveDashcamData();
   });
 
   // Handle dashcam events
@@ -405,6 +425,7 @@ app.post('/api/dashcams/register', (req, res) => {
   });
   
   logger.info(`Device registered via HTTP: ${deviceId} (${model} ${version})`);
+  saveDashcamData();
   res.json({ success: true, message: 'Device registered successfully' });
 });
 
@@ -435,6 +456,7 @@ app.post('/api/dashcams/:deviceId/status', (req, res) => {
   });
   
   logger.info(`Status update: ${deviceId} - ${status}`);
+  saveDashcamData();
   res.json({ success: true });
 });
 
