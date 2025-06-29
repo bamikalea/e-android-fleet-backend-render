@@ -294,16 +294,16 @@ io.on('connection', (socket) => {
       logger.info(`Device reconnected: ${deviceId}`);
     } else {
       // Register new device
-      dashcamData.set(deviceId, {
-        ...deviceInfo,
-        socketId: socket.id,
-        lastSeen: new Date(),
-        status: 'online',
-        location: null,
-        events: [],
+    dashcamData.set(deviceId, {
+      ...deviceInfo,
+      socketId: socket.id,
+      lastSeen: new Date(),
+      status: 'online',
+      location: null,
+      events: [],
         jt808Enabled: false,
         registeredAt: new Date()
-      });
+    });
       logger.info(`New device registered: ${deviceId}`);
     }
     
@@ -836,8 +836,8 @@ app.post('/api/dashcams/:deviceId/location', (req, res) => {
   }
   
   // Update dashcam location
-  dashcam.location = location;
-  dashcam.lastSeen = new Date();
+    dashcam.location = location;
+    dashcam.lastSeen = new Date();
   
   // Emit Socket.IO event for UI to see location update
   io.emit('location_update', {
