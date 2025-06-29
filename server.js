@@ -562,6 +562,7 @@ app.post('/api/dashcams/register', (req, res) => {
   };
   
   dashcamData.set(deviceId, dashcam);
+  saveDashcamData(); // Persist registration
   
   // Emit Socket.IO event for UI to see the device
   io.emit('dashcam_status', {
@@ -571,7 +572,6 @@ app.post('/api/dashcams/register', (req, res) => {
   });
   
   logger.info(`Device registered via HTTP: ${deviceId} (${model} ${version})`);
-  saveDashcamData();
   res.json({ success: true, message: 'Device registered successfully' });
 });
 
@@ -602,7 +602,7 @@ app.post('/api/dashcams/:deviceId/status', (req, res) => {
   });
   
   logger.info(`Status update: ${deviceId} - ${status}`);
-  saveDashcamData();
+  saveDashcamData(); // Persist status update
   res.json({ success: true });
 });
 
@@ -928,6 +928,7 @@ app.post('/api/dashcams/:deviceId/location', (req, res) => {
   // Update dashcam location
     dashcam.location = location;
     dashcam.lastSeen = new Date();
+  saveDashcamData(); // Persist location update
   
   // Emit Socket.IO event for UI to see location update
   io.emit('location_update', {
