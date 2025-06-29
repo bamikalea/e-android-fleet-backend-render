@@ -135,22 +135,81 @@ const mediaFiles = {
 };
 
 const DASHCAM_DATA_FILE = path.join(__dirname, 'dashcamData.json');
+const HEARTBEAT_TIMEOUT = 120000; // 2 minutes
+const RECONNECT_ATTEMPTS_FILE = path.join(__dirname, 'reconnectAttempts.json');
 
 function saveDashcamData() {
-  fs.writeFileSync(DASHCAM_DATA_FILE, JSON.stringify(Array.from(dashcamData.entries()), null, 2));
+  try {
+    fs.writeFileSync(DASHCAM_DATA_FILE, JSON.stringify(Array.from(dashcamData.entries()), null, 2));
+    logger.info(`Saved ${dashcamData.size} devices to persistent storage`);
+  } catch (error) {
+    logger.error('Error saving dashcam data:', error);
+  }
 }
 
 function loadDashcamData() {
-  if (fs.existsSync(DASHCAM_DATA_FILE)) {
-    const data = JSON.parse(fs.readFileSync(DASHCAM_DATA_FILE));
-    for (const [deviceId, dashcam] of data) {
-      dashcamData.set(deviceId, dashcam);
+  try {
+    if (fs.existsSync(DASHCAM_DATA_FILE)) {
+      const data = JSON.parse(fs.readFileSync(DASHCAM_DATA_FILE));
+      for (const [deviceId, dashcam] of data) {
+        // Reset connection state on load
+        dashcam.socketId = null;
+        dashcam.status = 'offline';
+        dashcam.lastSeen = new Date(dashcam.lastSeen);
+        dashcam.registeredAt = new Date(dashcam.registeredAt);
+        dashcamData.set(deviceId, dashcam);
+      }
+      logger.info(`Loaded ${dashcamData.size} devices from persistent storage`);
     }
+  } catch (error) {
+    logger.error('Error loading dashcam data:', error);
   }
+}
+
+function saveReconnectAttempts(attempts) {
+  try {
+    fs.writeFileSync(RECONNECT_ATTEMPTS_FILE, JSON.stringify(attempts, null, 2));
+  } catch (error) {
+    logger.error('Error saving reconnect attempts:', error);
+  }
+}
+
+function loadReconnectAttempts() {
+  try {
+    if (fs.existsSync(RECONNECT_ATTEMPTS_FILE)) {
+      return JSON.parse(fs.readFileSync(RECONNECT_ATTEMPTS_FILE));
+    }
+  } catch (error) {
+    logger.error('Error loading reconnect attempts:', error);
+  }
+  return {};
 }
 
 // Load dashcam data on startup
 loadDashcamData();
+
+// Heartbeat monitoring
+setInterval(() => {
+  const now = new Date();
+  const offlineDevices = [];
+  
+  for (const [deviceId, dashcam] of dashcamData.entries()) {
+    if (dashcam.status === 'online' && dashcam.lastSeen) {
+      const timeSinceLastSeen = now - new Date(dashcam.lastSeen);
+      if (timeSinceLastSeen > HEARTBEAT_TIMEOUT) {
+        dashcam.status = 'offline';
+        dashcam.socketId = null;
+        offlineDevices.push(deviceId);
+        logger.warn(`Device ${deviceId} marked offline due to heartbeat timeout`);
+      }
+    }
+  }
+  
+  if (offlineDevices.length > 0) {
+    saveDashcamData();
+    io.emit('devices_offline', { deviceIds: offlineDevices, timestamp: now });
+  }
+}, 30000); // Check every 30 seconds
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -171,6 +230,26 @@ io.on('connection', (socket) => {
         message: 'Device not found'
       });
       return;
+    }
+    
+    // Check for duplicate commands (within last 5 seconds)
+    const now = new Date();
+    const fiveSecondsAgo = new Date(now.getTime() - 5000);
+    
+    if (dashcam.pendingCommands) {
+      const recentCommands = dashcam.pendingCommands.filter(cmd => 
+        cmd.command === command && 
+        new Date(cmd.timestamp) > fiveSecondsAgo
+      );
+      
+      if (recentCommands.length > 0) {
+        logger.info(`[DEBUG] Socket.IO duplicate command ${command} ignored for device ${deviceId}`);
+        socket.emit('command_response', {
+          success: true,
+          message: `Command '${command}' already queued (duplicate ignored)`
+        });
+        return;
+      }
     }
     
     // Store command for device to pick up
@@ -203,17 +282,31 @@ io.on('connection', (socket) => {
   // Handle dashcam registration
   socket.on('dashcam_register', (data) => {
     const { deviceId, deviceInfo } = data;
-    dashcamData.set(deviceId, {
-      ...deviceInfo,
-      socketId: socket.id,
-      lastSeen: new Date(),
-      status: 'online',
-      location: null,
-      events: [],
-      jt808Enabled: false
-    });
     
-    logger.info(`Dashcam registered: ${deviceId}`);
+    // Check if device already exists
+    const existingDashcam = dashcamData.get(deviceId);
+    if (existingDashcam) {
+      // Update existing device
+      existingDashcam.socketId = socket.id;
+      existingDashcam.lastSeen = new Date();
+      existingDashcam.status = 'online';
+      existingDashcam.deviceInfo = { ...existingDashcam.deviceInfo, ...deviceInfo };
+      logger.info(`Device reconnected: ${deviceId}`);
+    } else {
+      // Register new device
+      dashcamData.set(deviceId, {
+        ...deviceInfo,
+        socketId: socket.id,
+        lastSeen: new Date(),
+        status: 'online',
+        location: null,
+        events: [],
+        jt808Enabled: false,
+        registeredAt: new Date()
+      });
+      logger.info(`New device registered: ${deviceId}`);
+    }
+    
     io.emit('dashcam_status', {
       deviceId,
       status: 'online',
@@ -303,6 +396,30 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle device reconnection
+  socket.on('device_reconnect', (data) => {
+    const { deviceId, deviceInfo } = data;
+    const dashcam = dashcamData.get(deviceId);
+    
+    if (dashcam) {
+      dashcam.socketId = socket.id;
+      dashcam.lastSeen = new Date();
+      dashcam.status = 'online';
+      if (deviceInfo) {
+        dashcam.deviceInfo = { ...dashcam.deviceInfo, ...deviceInfo };
+      }
+      
+      logger.info(`Device reconnected: ${deviceId}`);
+      io.emit('dashcam_status', {
+        deviceId,
+        status: 'online',
+        timestamp: new Date()
+      });
+      
+      saveDashcamData();
+    }
+  });
+
   // Handle disconnection
   socket.on('disconnect', () => {
     logger.info(`[DEBUG] Client disconnected: ${socket.id}`);
@@ -318,6 +435,9 @@ io.on('connection', (socket) => {
           status: 'offline',
           timestamp: new Date()
         });
+        
+        logger.info(`Device ${deviceId} disconnected`);
+        saveDashcamData();
         break;
       }
     }
@@ -493,6 +613,26 @@ app.post('/api/dashcams/:deviceId/commands', (req, res) => {
   const dashcam = dashcamData.get(deviceId);
   if (!dashcam) {
     return res.status(404).json({ error: 'Dashcam not found' });
+  }
+  
+  // Check for duplicate commands (within last 5 seconds)
+  const now = new Date();
+  const fiveSecondsAgo = new Date(now.getTime() - 5000);
+  
+  if (dashcam.pendingCommands) {
+    const recentCommands = dashcam.pendingCommands.filter(cmd => 
+      cmd.command === command && 
+      new Date(cmd.timestamp) > fiveSecondsAgo
+    );
+    
+    if (recentCommands.length > 0) {
+      logger.info(`[DEBUG] Duplicate command ${command} ignored for device ${deviceId}`);
+      return res.json({ 
+        success: true, 
+        message: `Command '${command}' already queued (duplicate ignored)`,
+        commandId: recentCommands[0].id
+      });
+    }
   }
   
   // Store command for device to pick up

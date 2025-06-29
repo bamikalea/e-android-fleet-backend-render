@@ -647,9 +647,11 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        let socket;
-        let deviceId = '13f15b0094dcc44a'; // Default device ID
         let isConnected = false;
+        let socket = null;
+        let deviceId = '13f15b0094dcc44a';
+        let lastCommandTime = {}; // Track last command time for debouncing
+        const COMMAND_DEBOUNCE_MS = 2000; // 2 seconds debounce
 
         // Initialize connection
         function initializeConnection() {
@@ -758,6 +760,35 @@
 
         function sendCommand(command, parameters = {}) {
             console.log('sendCommand called:', command, parameters);
+            
+            // Check for debouncing
+            const now = Date.now();
+            const lastTime = lastCommandTime[command] || 0;
+            if (now - lastTime < COMMAND_DEBOUNCE_MS) {
+                console.log(`Command ${command} debounced - too soon since last execution`);
+                addLogEntry(`Command ${command} ignored - please wait 2 seconds between commands`, 'warning');
+                
+                // Visual feedback - find and briefly disable the button
+                const buttons = document.querySelectorAll('button');
+                buttons.forEach(button => {
+                    if (button.onclick && button.onclick.toString().includes(command)) {
+                        const originalText = button.textContent;
+                        button.disabled = true;
+                        button.textContent = 'Wait...';
+                        button.style.opacity = '0.6';
+                        
+                        setTimeout(() => {
+                            button.disabled = false;
+                            button.textContent = originalText;
+                            button.style.opacity = '1';
+                        }, 1000);
+                    }
+                });
+                return;
+            }
+            
+            // Update last command time
+            lastCommandTime[command] = now;
             
             if (!isConnected && !socket) {
                 console.log('Not connected to server');
