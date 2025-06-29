@@ -20,3 +20,8 @@
 {"level":"info","message":"[DEBUG] POST /api/dashcams/test-device-123/commands - Command: capture_photo","service":"fleet-management-server","timestamp":"2025-06-29T13:37:52.365Z"}
 {"level":"warn","message":"Device test-device-123 marked offline due to heartbeat timeout","service":"fleet-management-server","timestamp":"2025-06-29T13:39:59.321Z"}
 {"level":"info","message":"Saved 1 devices to persistent storage","service":"fleet-management-server","timestamp":"2025-06-29T13:39:59.331Z"}
+{"level":"info","message":"[DEBUG] POST /api/dashcams/test-device-123/commands - Command: capture_photo","service":"fleet-management-server","timestamp":"2025-06-29T14:03:21.764Z"}
+{"level":"info","message":"[DEBUG] GET /api/dashcams/test-device-123/commands - Device polling for commands","service":"fleet-management-server","timestamp":"2025-06-29T14:03:25.289Z"}
+{"level":"info","message":"[DEBUG] Returning 2 commands to device test-device-123","service":"fleet-management-server","timestamp":"2025-06-29T14:03:25.290Z"}
+{"level":"info","message":"[DEBUG] Command response from device test-device-123: capture_photo - SUCCESS - Photo captured successfully","service":"fleet-management-server","timestamp":"2025-06-29T14:03:56.493Z"}
+{"level":"info","message":"[DEBUG] Cleared command capture_photo from device test-device-123","service":"fleet-management-server","timestamp":"2025-06-29T14:03:56.496Z"}

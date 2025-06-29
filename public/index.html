@@ -502,6 +502,7 @@
 <body>
     <div id="connectionStatus" class="connection-status">
         <span class="status-indicator status-unknown"></span>Connecting...
+        <button onclick="checkConnectionStatus()" style="margin-left: 10px; padding: 2px 8px; font-size: 0.8em; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Debug</button>
     </div>
     <div class="container">
         <div class="header">
@@ -687,21 +688,55 @@
             // Try Socket.IO connection
             try {
                 console.log('Attempting Socket.IO connection...');
-                socket = io();
+                socket = io({
+                    forceNew: true,
+                    timeout: 10000,
+                    transports: ['websocket', 'polling'],
+                    upgrade: true,
+                    rememberUpgrade: true
+                });
                 
                 socket.on('connect', () => {
-                    console.log('Socket.IO connected');
+                    console.log('Socket.IO connected successfully');
+                    console.log('Socket ID:', socket.id);
+                    console.log('Transport:', socket.io.engine.transport.name);
                     isConnected = true;
                     updateConnectionStatus('connected');
                     addLogEntry('Connected to server via WebSocket', 'info');
                     loadDeviceInfo();
                 });
 
-                socket.on('disconnect', () => {
-                    console.log('Socket.IO disconnected');
+                socket.on('connect_error', (error) => {
+                    console.error('Socket.IO connection error:', error);
+                    addLogEntry(`WebSocket connection error: ${error.message}`, 'error');
+                });
+
+                socket.on('disconnect', (reason) => {
+                    console.log('Socket.IO disconnected:', reason);
                     isConnected = false;
                     updateConnectionStatus('disconnected');
-                    addLogEntry('Disconnected from server', 'error');
+                    addLogEntry(`Disconnected from server: ${reason}`, 'error');
+                });
+
+                socket.on('reconnect', (attemptNumber) => {
+                    console.log('Socket.IO reconnected after', attemptNumber, 'attempts');
+                    isConnected = true;
+                    updateConnectionStatus('connected');
+                    addLogEntry('Reconnected to server', 'success');
+                });
+
+                socket.on('reconnect_error', (error) => {
+                    console.error('Socket.IO reconnection error:', error);
+                    addLogEntry(`Reconnection error: ${error.message}`, 'error');
+                });
+
+                socket.on('reconnect_failed', () => {
+                    console.error('Socket.IO reconnection failed');
+                    addLogEntry('Reconnection failed, using HTTP polling', 'warning');
+                    updateConnectionStatus('connected'); // Show as connected for HTTP
+                    loadDeviceInfo();
+                    // Start polling for device updates
+                    setInterval(loadDeviceInfo, 5000); // Poll every 5 seconds
                 });
 
                 socket.on('command_response', (data) => {
@@ -744,15 +779,24 @@
                 // Set timeout for Socket.IO connection
                 setTimeout(() => {
                     if (!isConnected) {
+                        console.log('Socket.IO connection timeout - checking connection state...');
+                        console.log('Socket object:', socket);
+                        console.log('Socket connected:', socket ? socket.connected : 'No socket');
+                        console.log('Socket transport:', socket && socket.io ? socket.io.engine.transport.name : 'Unknown');
+                        
                         addLogEntry('WebSocket connection failed, using HTTP polling', 'warning');
                         updateConnectionStatus('connected'); // Show as connected for HTTP
                         loadDeviceInfo();
                         // Start polling for device updates
                         setInterval(loadDeviceInfo, 5000); // Poll every 5 seconds
+                    } else {
+                        console.log('Socket.IO connection successful - no timeout fallback needed');
                     }
-                }, 3000);
+                }, 5000); // Increased timeout to 5 seconds
 
             } catch (error) {
+                console.error('Socket.IO initialization error:', error);
+                addLogEntry(`WebSocket initialization error: ${error.message}`, 'error');
                 addLogEntry('WebSocket not available, using HTTP polling', 'warning');
                 updateConnectionStatus('connected'); // Show as connected for HTTP
                 loadDeviceInfo();
@@ -782,6 +826,19 @@
                     statusEl.innerHTML = '<span class="loading"></span>Connecting...';
                     break;
             }
+        }
+
+        function checkConnectionStatus() {
+            console.log('=== Connection Status Check ===');
+            console.log('Socket object exists:', !!socket);
+            if (socket) {
+                console.log('Socket connected:', socket.connected);
+                console.log('Socket ID:', socket.id);
+                console.log('Socket transport:', socket.io ? socket.io.engine.transport.name : 'Unknown');
+                console.log('Socket ready state:', socket.io ? socket.io.engine.readyState : 'Unknown');
+                console.log('Is connected variable:', isConnected);
+            }
+            console.log('=============================');
         }
 
         function sendCommand(command, parameters = {}) {
