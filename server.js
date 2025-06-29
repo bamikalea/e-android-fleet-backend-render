@@ -587,34 +587,69 @@ app.get('/api/dashcams/:deviceId/commands', (req, res) => {
   
   const dashcam = dashcamData.get(deviceId);
   if (!dashcam) {
+    logger.warn(`[DEBUG] Device ${deviceId} not found during command polling`);
     return res.status(404).json({ error: 'Dashcam not found' });
   }
   
-  // Clean up old commands (older than 5 minutes)
-  if (dashcam.pendingCommands) {
-    const now = new Date();
-    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-    const beforeCount = dashcam.pendingCommands.length;
-    dashcam.pendingCommands = dashcam.pendingCommands.filter(cmd => 
-      new Date(cmd.timestamp) > fiveMinutesAgo
-    );
-    const afterCount = dashcam.pendingCommands.length;
-    if (beforeCount !== afterCount) {
-      logger.info(`[DEBUG] Cleaned up ${beforeCount - afterCount} old commands for device ${deviceId}`);
-    }
+  // Initialize pendingCommands if it doesn't exist
+  if (!dashcam.pendingCommands) {
+    dashcam.pendingCommands = [];
   }
   
-  // Return any pending commands
-  const commands = dashcam.pendingCommands || [];
+  // Clean up old commands (older than 10 minutes instead of 5)
+  const now = new Date();
+  const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+  const beforeCount = dashcam.pendingCommands.length;
+  dashcam.pendingCommands = dashcam.pendingCommands.filter(cmd => 
+    new Date(cmd.timestamp) > tenMinutesAgo
+  );
+  const afterCount = dashcam.pendingCommands.length;
+  if (beforeCount !== afterCount) {
+    logger.info(`[DEBUG] Cleaned up ${beforeCount - afterCount} old commands for device ${deviceId}`);
+  }
+  
+  // Return only pending commands (not sent ones)
+  const pendingCommands = dashcam.pendingCommands.filter(cmd => cmd.status === 'pending');
   
   // Mark commands as sent but don't clear them yet
-  commands.forEach(cmd => {
+  pendingCommands.forEach(cmd => {
     cmd.status = 'sent';
     cmd.sentAt = new Date();
   });
   
-  logger.info(`[DEBUG] Returning ${commands.length} commands to device ${deviceId}`);
-  res.json({ commands });
+  logger.info(`[DEBUG] Returning ${pendingCommands.length} pending commands to device ${deviceId}`);
+  logger.info(`[DEBUG] Total commands in queue: ${dashcam.pendingCommands.length}`);
+  
+  res.json({ commands: pendingCommands });
+});
+
+// Debug endpoint to reset command status
+app.post('/api/dashcams/:deviceId/commands/reset', (req, res) => {
+  const { deviceId } = req.params;
+  logger.info(`[DEBUG] POST /api/dashcams/${deviceId}/commands/reset - Resetting command status`);
+  
+  const dashcam = dashcamData.get(deviceId);
+  if (!dashcam) {
+    return res.status(404).json({ error: 'Dashcam not found' });
+  }
+  
+  if (dashcam.pendingCommands) {
+    let resetCount = 0;
+    dashcam.pendingCommands.forEach(cmd => {
+      if (cmd.status === 'sent') {
+        cmd.status = 'pending';
+        delete cmd.sentAt;
+        resetCount++;
+      }
+    });
+    logger.info(`[DEBUG] Reset ${resetCount} commands to pending status for device ${deviceId}`);
+  }
+  
+  res.json({ 
+    success: true, 
+    message: `Reset commands for device ${deviceId}`,
+    pendingCommands: dashcam.pendingCommands ? dashcam.pendingCommands.filter(cmd => cmd.status === 'pending').length : 0
+  });
 });
 
 // Send command to device via HTTP (UI fallback)
