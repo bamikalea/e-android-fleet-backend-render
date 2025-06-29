@@ -564,6 +564,7 @@ app.post('/api/dashcams/:deviceId/photo', upload.single('photo'), (req, res) => 
     originalName: req.file.originalname,
     path: req.file.path,
     size: req.file.size,
+    mimetype: req.file.mimetype,
     eventType: eventType || 'manual',
     uploadedAt: new Date()
   };

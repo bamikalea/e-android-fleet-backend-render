@@ -968,9 +968,9 @@
         }
 
         function displayMediaFiles(files) {
-            const photos = files.filter(f => f.mimetype.startsWith('image/'));
-            const videos = files.filter(f => f.mimetype.startsWith('video/'));
-            const audios = files.filter(f => f.mimetype.startsWith('audio/'));
+            const photos = files.filter(f => f && f.mimetype && f.mimetype.startsWith('image/'));
+            const videos = files.filter(f => f && f.mimetype && f.mimetype.startsWith('video/'));
+            const audios = files.filter(f => f && f.mimetype && f.mimetype.startsWith('audio/'));
 
             displayMediaSection('photos', photos);
             displayMediaSection('videos', videos);

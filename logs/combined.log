@@ -8,3 +8,4 @@
 {"level":"info","message":"[DEBUG] Command queued for device test-device: take_photo (ID: caebcf6c-ece8-44b4-8fe3-c19cd5154056)","service":"fleet-management-server","timestamp":"2025-06-28T20:40:04.649Z"}
 {"level":"info","message":"[DEBUG] GET /api/dashcams/test-device/commands - Device polling for commands","service":"fleet-management-server","timestamp":"2025-06-28T20:40:07.728Z"}
 {"level":"info","message":"[DEBUG] Returning 1 commands to device test-device","service":"fleet-management-server","timestamp":"2025-06-28T20:40:07.729Z"}
+{"level":"info","message":"Fleet Management Server running on port 3000","service":"fleet-management-server","timestamp":"2025-06-29T00:03:18.147Z"}
