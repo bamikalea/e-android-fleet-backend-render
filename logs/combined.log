@@ -9,3 +9,14 @@
 {"level":"info","message":"[DEBUG] GET /api/dashcams/test-device/commands - Device polling for commands","service":"fleet-management-server","timestamp":"2025-06-28T20:40:07.728Z"}
 {"level":"info","message":"[DEBUG] Returning 1 commands to device test-device","service":"fleet-management-server","timestamp":"2025-06-28T20:40:07.729Z"}
 {"level":"info","message":"Fleet Management Server running on port 3000","service":"fleet-management-server","timestamp":"2025-06-29T00:03:18.147Z"}
+{"level":"info","message":"Fleet Management Server running on port 3000","service":"fleet-management-server","timestamp":"2025-06-29T12:38:23.654Z"}
+{"level":"info","message":"Fleet Management Server running on port 3000","service":"fleet-management-server","timestamp":"2025-06-29T13:25:21.196Z"}
+{"level":"info","message":"Fleet Management Server running on port 3000","service":"fleet-management-server","timestamp":"2025-06-29T13:31:28.957Z"}
+{"level":"info","message":"Fleet Management Server running on port 3000","service":"fleet-management-server","timestamp":"2025-06-29T13:37:29.315Z"}
+{"level":"info","message":"[DEBUG] POST /api/dashcams/test-device-123/commands - Command: capture_photo","service":"fleet-management-server","timestamp":"2025-06-29T13:37:39.324Z"}
+{"level":"info","message":"[DEBUG] POST /api/dashcams/register body: {\"deviceId\":\"test-device-123\",\"model\":\"Test Device\",\"version\":\"1.0\"}","service":"fleet-management-server","timestamp":"2025-06-29T13:37:46.649Z"}
+{"level":"info","message":"Device registered via HTTP: test-device-123 (Test Device 1.0)","service":"fleet-management-server","timestamp":"2025-06-29T13:37:46.650Z"}
+{"level":"info","message":"Saved 1 devices to persistent storage","service":"fleet-management-server","timestamp":"2025-06-29T13:37:46.651Z"}
+{"level":"info","message":"[DEBUG] POST /api/dashcams/test-device-123/commands - Command: capture_photo","service":"fleet-management-server","timestamp":"2025-06-29T13:37:52.365Z"}
+{"level":"warn","message":"Device test-device-123 marked offline due to heartbeat timeout","service":"fleet-management-server","timestamp":"2025-06-29T13:39:59.321Z"}
+{"level":"info","message":"Saved 1 devices to persistent storage","service":"fleet-management-server","timestamp":"2025-06-29T13:39:59.331Z"}

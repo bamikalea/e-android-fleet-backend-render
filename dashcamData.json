@@ -1,0 +1,24 @@
+[
+  [
+    "test-device-123",
+    {
+      "deviceId": "test-device-123",
+      "model": "Test Device",
+      "version": "1.0",
+      "status": "offline",
+      "lastSeen": "2025-06-29T13:37:46.649Z",
+      "registeredAt": "2025-06-29T13:37:46.649Z",
+      "jt808Enabled": false,
+      "pendingCommands": [
+        {
+          "id": "1751204272365",
+          "command": "capture_photo",
+          "parameters": {},
+          "timestamp": "2025-06-29T13:37:52.365Z",
+          "status": "pending"
+        }
+      ],
+      "socketId": null
+    }
+  ]
+]

@@ -106,6 +106,7 @@
             padding: 10px;
             border: 1px solid #dee2e6;
             text-align: center;
+            position: relative;
         }
 
         .media-item img {
@@ -127,6 +128,19 @@
         .media-item audio {
             width: 100%;
             margin-bottom: 10px;
+        }
+
+        .camera-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 123, 255, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            font-weight: bold;
+            z-index: 10;
         }
 
         .media-info {
@@ -615,13 +629,25 @@
 
             <div class="media-gallery">
                 <div class="media-tabs">
-                    <button class="media-tab active" onclick="showMediaContent('photos')">Photos</button>
+                    <button class="media-tab active" onclick="showMediaContent('photos')">All Photos</button>
+                    <button class="media-tab" onclick="showMediaContent('front-photos')">Front Camera</button>
+                    <button class="media-tab" onclick="showMediaContent('rear-photos')">Rear Camera</button>
                     <button class="media-tab" onclick="showMediaContent('videos')">Videos</button>
                     <button class="media-tab" onclick="showMediaContent('audios')">Audios</button>
                 </div>
                 <div class="media-content active" id="photos">
                     <div class="media-grid">
-                        <!-- Photos will be dynamically added here -->
+                        <!-- All photos will be dynamically added here -->
+                    </div>
+                </div>
+                <div class="media-content" id="front-photos">
+                    <div class="media-grid">
+                        <!-- Front camera photos will be dynamically added here -->
+                    </div>
+                </div>
+                <div class="media-content" id="rear-photos">
+                    <div class="media-grid">
+                        <!-- Rear camera photos will be dynamically added here -->
                     </div>
                 </div>
                 <div class="media-content" id="videos">
@@ -1003,7 +1029,19 @@
             const videos = files.filter(f => f && f.mimetype && f.mimetype.startsWith('video/'));
             const audios = files.filter(f => f && f.mimetype && f.mimetype.startsWith('audio/'));
 
+            // Filter photos by camera type
+            const frontPhotos = photos.filter(f => 
+                (f.originalName && f.originalName.includes('_front_')) ||
+                (f.eventType && f.eventType.includes('front'))
+            );
+            const rearPhotos = photos.filter(f => 
+                (f.originalName && f.originalName.includes('_rear_')) ||
+                (f.eventType && f.eventType.includes('rear'))
+            );
+
             displayMediaSection('photos', photos);
+            displayMediaSection('front-photos', frontPhotos);
+            displayMediaSection('rear-photos', rearPhotos);
             displayMediaSection('videos', videos);
             displayMediaSection('audios', audios);
         }
@@ -1030,6 +1068,21 @@
             const fileSize = formatFileSize(file.size);
             const uploadDate = new Date(file.uploadedAt).toLocaleString();
 
+            // Extract camera type from filename or event type
+            let cameraType = '';
+            if (file.originalName && file.originalName.includes('_front_')) {
+                cameraType = 'Front Camera';
+            } else if (file.originalName && file.originalName.includes('_rear_')) {
+                cameraType = 'Rear Camera';
+            } else if (file.eventType && file.eventType.includes('front')) {
+                cameraType = 'Front Camera';
+            } else if (file.eventType && file.eventType.includes('rear')) {
+                cameraType = 'Rear Camera';
+            }
+
+            // Add camera type badge if available
+            const cameraBadge = cameraType ? `<div class="camera-badge">${cameraType}</div>` : '';
+
             let mediaElement = '';
             if (file.mimetype.startsWith('image/')) {
                 mediaElement = `<img src="${file.url}" alt="${file.originalName}" onclick="openMediaModal('${file.url}', 'image')">`;
@@ -1041,6 +1094,7 @@
 
             item.innerHTML = `
                 ${mediaElement}
+                ${cameraBadge}
                 <div class="media-info">
                     <div><strong>${file.originalName}</strong></div>
                     <div>Size: ${fileSize}</div>
