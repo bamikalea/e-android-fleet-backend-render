@@ -590,6 +590,20 @@ app.get('/api/dashcams/:deviceId/commands', (req, res) => {
     return res.status(404).json({ error: 'Dashcam not found' });
   }
   
+  // Clean up old commands (older than 5 minutes)
+  if (dashcam.pendingCommands) {
+    const now = new Date();
+    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+    const beforeCount = dashcam.pendingCommands.length;
+    dashcam.pendingCommands = dashcam.pendingCommands.filter(cmd => 
+      new Date(cmd.timestamp) > fiveMinutesAgo
+    );
+    const afterCount = dashcam.pendingCommands.length;
+    if (beforeCount !== afterCount) {
+      logger.info(`[DEBUG] Cleaned up ${beforeCount - afterCount} old commands for device ${deviceId}`);
+    }
+  }
+  
   // Return any pending commands
   const commands = dashcam.pendingCommands || [];
   
@@ -1139,17 +1153,28 @@ app.post('/api/dashcams/:deviceId/response', (req, res) => {
 
   logger.info(`[DEBUG] Command response from device ${deviceId}: ${command} - ${success ? 'SUCCESS' : 'FAILED'} - ${message}`);
 
-  // Clear the command from pending commands if it was successful
+  // Only clear the command from pending commands if it was successful
   const dashcam = dashcamData.get(deviceId);
-  if (dashcam && dashcam.pendingCommands) {
+  if (dashcam && dashcam.pendingCommands && success) {
     if (commandId) {
-      // Remove specific command by ID
+      // Remove specific command by ID only if successful
+      const beforeCount = dashcam.pendingCommands.length;
       dashcam.pendingCommands = dashcam.pendingCommands.filter(cmd => cmd.id !== commandId);
+      const afterCount = dashcam.pendingCommands.length;
+      if (beforeCount !== afterCount) {
+        logger.info(`[DEBUG] Cleared successful command ${command} (ID: ${commandId}) from device ${deviceId}`);
+      }
     } else {
-      // Remove command by name (fallback)
+      // Remove command by name (fallback) only if successful
+      const beforeCount = dashcam.pendingCommands.length;
       dashcam.pendingCommands = dashcam.pendingCommands.filter(cmd => cmd.command !== command);
+      const afterCount = dashcam.pendingCommands.length;
+      if (beforeCount !== afterCount) {
+        logger.info(`[DEBUG] Cleared successful command ${command} from device ${deviceId}`);
+      }
     }
-    logger.info(`[DEBUG] Cleared command ${command} from device ${deviceId}`);
+  } else if (!success) {
+    logger.info(`[DEBUG] Command ${command} failed, keeping in queue for retry`);
   }
 
   // Emit to UI via Socket.IO with proper structure
